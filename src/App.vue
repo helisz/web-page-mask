@@ -26,7 +26,7 @@ import {
   undo,
   zoomBy,
 } from '@/stores/editor'
-import { loadSamplePdf, openFiles, openFromPicker } from '@/composables/useOpenPdf'
+import { loadSample, openFiles, openFromPicker } from '@/composables/useOpenDocument'
 
 const dragging = ref(false)
 let dragDepth = 0
@@ -174,7 +174,7 @@ onMounted(() => {
 
   const params = new URLSearchParams(window.location.search)
   if (params.get('demo') === '1') {
-    void loadSamplePdf().then((ok) => {
+    void loadSample().then((ok) => {
       if (ok && params.get('seed') === '1') seedDemoMasks()
     })
   }

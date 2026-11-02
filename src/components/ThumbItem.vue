@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { exclusiveRender } from '@/lib/pdf'
 import { paintMasks } from '@/lib/mosaic'
 import { cn } from '@/lib/utils'
+import type { SourceDoc } from '@/lib/source'
 import type { Mask } from '@/types'
 
 const props = defineProps<{
-  doc: PDFDocumentProxy | null
+  doc: SourceDoc | null
   page: number
   masks: Mask[]
   active: boolean
@@ -29,14 +29,13 @@ const THUMB_WIDTH = 132
 async function render() {
   if (!props.doc || ready.value || failed.value) return
   try {
-    const pdfPage = await props.doc.getPage(props.page)
-    const first = pdfPage.getViewport({ scale: 1 })
-    pageWidthPt = first.width
+    const page = await props.doc.getPage(props.page)
+    const size = page.size
+    pageWidthPt = size.width
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    const scale = (THUMB_WIDTH * dpr) / first.width
-    const viewport = pdfPage.getViewport({ scale })
-    const width = Math.max(1, Math.round(viewport.width))
-    const height = Math.max(1, Math.round(viewport.height))
+    const scale = (THUMB_WIDTH * dpr) / size.width
+    const width = Math.max(1, Math.round(size.width * scale))
+    const height = Math.max(1, Math.round(size.height * scale))
 
     const off = document.createElement('canvas')
     off.width = width
@@ -46,7 +45,7 @@ async function render() {
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, width, height)
 
-    await exclusiveRender(() => pdfPage.render({ canvas: off, viewport }).promise)
+    await exclusiveRender(() => page.render(off, scale))
     base = off
     ready.value = true
     paint()
@@ -101,6 +100,7 @@ onBeforeUnmount(() => {
   <button
     ref="root"
     type="button"
+    :title="doc?.pageLabel(page) ?? undefined"
     :class="
       cn(
         'group relative block w-full overflow-hidden rounded-md border bg-white p-0 text-left transition-all',

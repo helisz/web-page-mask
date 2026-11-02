@@ -113,8 +113,10 @@ watch(
     settings.lockRatio = true
     settings.quality = 0.92
     settings.dpi = 144
-    settings.width = Math.round(state.pageSize.width * 2)
-    settings.height = Math.round(state.pageSize.height * 2)
+    // images: native resolution by default; PDFs keep the familiar 2x
+    const factor = doc.value?.kind === 'image' ? 1 : 2
+    settings.width = Math.round(state.pageSize.width * factor)
+    settings.height = Math.round(state.pageSize.height * factor)
   },
 )
 

@@ -14,11 +14,15 @@
     "make-sample": "node scripts/make-sample.mjs",
     "make-pdf-sample": "node scripts/make-pdf-sample.mjs",
     "selftest": "node scripts/qa.mjs",
+    "qa:smoke": "node scripts/qa-smoke.mjs",
     "qa:ui": "node scripts/qa-ui.mjs",
     "qa:export": "node scripts/qa-export.mjs",
+    "qa:image": "node scripts/qa-image.mjs",
     "qa:mobile": "node scripts/qa-mobile.mjs",
     "qa:demo": "node scripts/qa-demo.mjs",
-    "qa": "node scripts/qa.mjs && node scripts/qa-ui.mjs && node scripts/qa-export.mjs && node scripts/qa-mobile.mjs && node scripts/qa-demo.mjs"
+    "qa:ui-only": "node scripts/qa-all.mjs --only ui,mobile",
+    "qa": "node scripts/qa-all.mjs",
+    "check": "npm run typecheck && node scripts/qa-smoke.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.66.0",

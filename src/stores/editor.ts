@@ -1,13 +1,16 @@
 import { reactive, shallowRef, watch } from 'vue'
-import type { PDFDocumentProxy } from 'pdfjs-dist'
 import type { Locale, Mask, MaskShape, MaskStyle, PageSize, Tool } from '@/types'
 import type { MessageKey } from '@/i18n/messages'
-import { destroyPdf, loadPdf, getPageSize, PdfOpenError } from '@/lib/pdf'
+import type { SourceDoc } from '@/lib/source'
+import { selectInputFiles } from '@/lib/source'
+import { loadPdf, PdfOpenError } from '@/lib/pdf'
+import { ImageOpenError, loadImages } from '@/lib/images'
 import { clamp, uid } from '@/lib/utils'
 
 export type FitMode = 'width' | 'page' | 'custom'
 
-export const MIN_ZOOM = 0.1
+/** Images can be far wider than a PDF page, so the floor allows a full fit. */
+export const MIN_ZOOM = 0.05
 export const MAX_ZOOM = 8
 
 const PREFS_KEY = 'pdf-mask:prefs'
@@ -94,7 +97,8 @@ export const state = reactive<EditorState>({
   panelOpen: false,
 })
 
-export const doc = shallowRef<PDFDocumentProxy | null>(null)
+/** The open document: a PDF or one page per dropped image. */
+export const doc = shallowRef<SourceDoc | null>(null)
 
 const past: Mask[][] = []
 const future: Mask[][] = []
@@ -210,9 +214,15 @@ function setLoadError(key: MessageKey, detail = '') {
   state.loadErrorDetail = detail
 }
 
-export async function openPdfFile(file: File): Promise<boolean> {
-  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
-  if (!isPdf) {
+/**
+ * Open a PDF or a batch of images (one page each). A PDF in the batch wins,
+ * because it already is a complete document.
+ */
+export async function openDocument(files: File[]): Promise<boolean> {
+  const list = files.filter((file): file is File => !!file)
+  const { pdf, images } = selectInputFiles(list)
+  const targets = pdf ? [pdf] : images
+  if (!targets.length) {
     setLoadError('drop.badFile')
     return false
   }
@@ -224,16 +234,17 @@ export async function openPdfFile(file: File): Promise<boolean> {
   const previous = doc.value
   doc.value = null
   if (previous) {
-    await destroyPdf(previous)
+    await previous.destroy()
   }
 
   try {
-    const buffer = await file.arrayBuffer()
-    const pdf = await loadPdf(buffer)
-    doc.value = pdf
-    state.fileName = file.name
-    state.fileSize = file.size
-    state.pageCount = pdf.numPages
+    const source = pdf
+      ? await loadPdf(await pdf.arrayBuffer())
+      : await loadImages(targets)
+    doc.value = source
+    state.fileName = targets[0]!.name
+    state.fileSize = targets.reduce((total, file) => total + file.size, 0)
+    state.pageCount = source.numPages
     resetEditor()
     return true
   } catch (error) {
@@ -242,6 +253,8 @@ export async function openPdfFile(file: File): Promise<boolean> {
       else if (error.kind === 'invalid') {
         setLoadError(error.message === 'empty' ? 'pdf.empty' : 'pdf.invalid')
       } else setLoadError('pdf.unknown', error.message)
+    } else if (error instanceof ImageOpenError) {
+      setLoadError('image.decode', error.fileName)
     } else {
       setLoadError('pdf.unknown', error instanceof Error ? error.message : String(error))
     }
@@ -262,7 +275,7 @@ export async function openSamplePdf(): Promise<boolean> {
     const blob = await response.blob()
     const file = new File([blob], 'sample.pdf', { type: 'application/pdf' })
     state.loading = false
-    return await openPdfFile(file)
+    return await openDocument([file])
   } catch (error) {
     state.loading = false
     setLoadError('pdf.unknown', error instanceof Error ? error.message : String(error))
@@ -270,7 +283,7 @@ export async function openSamplePdf(): Promise<boolean> {
   }
 }
 
-export async function closePdf() {
+export async function closeDocument() {
   const previous = doc.value
   doc.value = null
   state.fileName = ''
@@ -279,7 +292,7 @@ export async function closePdf() {
   resetEditor()
   state.loadErrorKey = null
   if (previous) {
-    await destroyPdf(previous)
+    await previous.destroy()
   }
 }
 
@@ -537,7 +550,7 @@ export function redo() {
 export async function pageSizeFor(page: number): Promise<PageSize> {
   const current = doc.value
   if (!current) return state.pageSize
-  return getPageSize(current, page)
+  return current.getPageSize(page)
 }
 
 export function openExportDialog() {

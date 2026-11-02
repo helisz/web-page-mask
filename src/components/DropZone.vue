@@ -3,11 +3,14 @@ import { FilePlus2, ShieldCheck, Sparkles } from '@lucide/vue'
 import Button from './ui/Button.vue'
 import { t } from '@/i18n'
 import { state } from '@/stores/editor'
-import { loadSamplePdf, loadErrorMessage, openFromPicker } from '@/composables/useOpenPdf'
+import { loadSample, loadErrorMessage, openFromPicker } from '@/composables/useOpenDocument'
 </script>
 
 <template>
-  <div class="stage-bg flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6">
+  <div
+    data-testid="drop-zone"
+    class="stage-bg flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6"
+  >
     <div
       class="w-full max-w-lg rounded-2xl border border-dashed border-border/80 bg-card/80 p-7 text-center shadow-2xl backdrop-blur-sm sm:p-9"
     >
@@ -26,13 +29,14 @@ import { loadSamplePdf, loadErrorMessage, openFromPicker } from '@/composables/u
           <FilePlus2 class="size-4" />
           {{ t('drop.choose') }}
         </Button>
-        <Button variant="outline" class="w-full sm:w-auto" @click="loadSamplePdf()">
+        <Button variant="outline" class="w-full sm:w-auto" @click="loadSample()">
           <Sparkles class="size-4" />
           {{ t('drop.sample') }}
         </Button>
       </div>
 
       <p class="mt-4 text-[10px] text-muted-foreground">{{ t('drop.hint') }}</p>
+      <p class="mt-1 text-[10px] text-muted-foreground/80">{{ t('drop.formats') }}</p>
 
       <div
         v-if="state.loadErrorKey"

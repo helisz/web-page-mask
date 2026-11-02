@@ -1,7 +1,7 @@
-# PDF 打码工具 · web-page-mask
+# PDF / 图片打码工具 · web-page-mask
 
-纯前端的 PDF 遮盖工具：上传 PDF → 框选区域 → 马赛克 / 模糊 / 纯色 → 按页导出 PNG / JPG / PDF。
-所有渲染与导出都在浏览器本地完成，**PDF 不会上传到任何服务器**。
+纯前端的遮盖工具：上传 **PDF 或图片** → 框选区域 → 马赛克 / 模糊 / 纯色 → 按页导出 PNG / JPG / PDF。
+所有渲染与导出都在浏览器本地完成，**文件不会上传到任何服务器**。
 
 在线试用：<https://helisz.github.io/web-page-mask/>
 
@@ -12,14 +12,16 @@
 ## 功能
 
 **浏览**
-- 拖拽或选择 PDF，左侧缩略图快速跳页（懒加载）
+- 拖拽或选择 **PDF / 图片**（PNG、JPG、WebP、GIF、BMP、AVIF、SVG 等，取决于浏览器解码能力）
+- 一次拖入多张图片会变成多页文档，按文件名自然排序（`IMG_2` 排在 `IMG_10` 前），每页保留自己的像素尺寸
+- 左侧缩略图快速跳页（懒加载），图片文档的缩略图悬停可看文件名
 - 翻页（按钮 / 页码输入 / ← → 键）、缩放（按钮 / 百分比回 100% / 适合宽度 / 整页 / Ctrl+滚轮以光标为中心缩放）
 - 放大后可拖拽平移（手型工具、按住空格、鼠标中键均可）
 
 **打码**
 - 在页面上拖拽即框选，实时看到效果
 - 三种方式：像素化马赛克（默认）、高斯模糊、纯色块
-- 三种形状：**长方形（默认）/ 正方形 / 圆形**；正方形与圆形在 PDF 点单位下等宽高，导出同样生效
+- 三种形状：**长方形（默认）/ 正方形 / 圆形**；正方形与圆形按页面点（pt）保持等宽高，导出同样生效
 - 马赛克单块大小 4–48 px 可调（以 100% 缩放下的像素计，导出时按比例换算，视觉一致）
 - 选中遮罩后可拖动、八向拉伸；支持按住 Shift 之外的常规操作、删除单块、清空本页 / 全部
 - 完整撤销 / 重做（撤销栈按手势合并，连续拖动只算一步）
@@ -61,7 +63,7 @@ npm run preview     # 预览生产构建
 
 ## 使用流程
 
-1. 拖入 PDF，或点「选择 PDF 文件」/ 按 `⌘/Ctrl + O`
+1. 拖入 PDF 或图片（可一次选多张图片），或点「选择文件」/ 按 `⌘/Ctrl + O`
 2. 用「框选」工具在页面上拖出矩形；右侧可切换「长方形 / 正方形 / 圆形」
 3. 右侧面板选择打码方式；马赛克里调「块大小」，块越大越难还原
 4. 需要时继续框选多块，或换页继续；`⌘/Ctrl + Z` 可撤销
@@ -81,11 +83,25 @@ npm run preview     # 预览生产构建
 | `Delete` / `Backspace` | 删除选中的遮罩 |
 | `Esc` | 取消选择 |
 | `⌘/Ctrl + Z` / `⌘/Ctrl + Shift + Z` | 撤销 / 重做 |
-| `⌘/Ctrl + O` | 打开 PDF |
+| `⌘/Ctrl + O` | 打开 PDF / 图片 |
 
 ---
 
 ## 实现要点
+
+**输入抽象**（`src/lib/source.ts`）
+
+编辑器不直接依赖 pdf.js，而是面向 `SourceDoc` / `DocPage` 两个接口：
+
+```ts
+SourceDoc { kind, numPages, getPage(n), getPageSize(n), pageLabel(n), destroy() }
+DocPage   { pageNumber, size, render(canvas, scale), cancel() }
+```
+
+- `PdfDocument`（`src/lib/pdf.ts`）包一层 pdf.js，`render()` 内部用 `RenderTask` 支持取消
+- `ImageDocument`（`src/lib/images.ts`）把每张图片当成一页，用 `<img>` + `decode()` 解码，保留 EXIF 方向，删文档时才回收 blob URL
+- 图片的 1 个源像素记为 1pt，所以「原始 72 DPI」导出的就是原图分辨率，遮罩、马赛克块大小的含义也和 PDF 完全一致
+- 视图、缩略图、导出三条渲染路径都只认这两个接口，加新格式只需要再实现一个 `SourceDoc`
 
 **遮罩数据模型**（`src/types.ts`）
 
@@ -93,11 +109,11 @@ npm run preview     # 预览生产构建
 { id, page, x, y, w, h, style, shape, block, color }
 ```
 
-`x/y/w/h` 是相对页面的归一化坐标（0–1），`block` 以 PDF 点（pt）为单位，`shape` 为 `rect | square | circle`。因为是归一化 + 物理单位，同一份数据在任意缩放、任意导出 DPI 下重绘结果完全一致；正方形/圆形按「点」保持等宽高（`w * pageWidth === h * pageHeight`），所以换页面比例也不会被拉成椭圆。圆形的裁剪用 canvas 的 `ellipse` 路径 + `clip()`，屏幕、缩略图和导出走同一段代码。
+`x/y/w/h` 是相对页面的归一化坐标（0–1），`block` 以页面点（pt）为单位（图片里 1pt = 1 个源像素），`shape` 为 `rect | square | circle`。因为是归一化 + 物理单位，同一份数据在任意缩放、任意导出 DPI 下重绘结果完全一致；正方形/圆形按「点」保持等宽高（`w * pageWidth === h * pageHeight`），所以换页面比例也不会被拉成椭圆。圆形的裁剪用 canvas 的 `ellipse` 路径 + `clip()`，屏幕、缩略图和导出走同一段代码。
 
 **渲染管线**
 
-1. `pdf.js` 把页面渲染到 `<canvas>`（按 devicePixelRatio 放大，超大画布自动降采样保护）
+1. `PdfDocument` / `ImageDocument` 把页面渲染到 `<canvas>`（按 devicePixelRatio 放大，超大画布自动降采样保护）
 2. 遮罩在独立的 overlay canvas 上实时合成，底图始终保持"干净"，所以重叠、修改都不会污染像素
 3. 导出时按目标分辨率重新渲染底图，再用同一套 `paintMasks()` 重绘遮罩 —— 4x / 300 DPI 导出依然清晰，不是把屏幕截图放大
 
@@ -137,7 +153,9 @@ src/
     HelpDialog.vue    快捷键
     DropZone.vue      空状态
   lib/
-    pdf.ts            pdf.js 加载、页尺寸缓存、渲染串行队列
+    source.ts         SourceDoc / DocPage 接口、文件类型识别与 picker 的 accept
+    pdf.ts            pdf.js 加载、PDF 页实现、渲染串行队列
+    images.ts         图片文档：解码、页尺寸（1px = 1pt）、多图成页
     mosaic.ts         马赛克 / 模糊 / 纯色绘制
     export.ts         尺寸计算、导出、ZIP 打包
   stores/editor.ts    全局状态、遮罩、历史栈、偏好持久化
@@ -158,9 +176,10 @@ npm run dev -- --port 5179
 
 npm run qa:ui       # 布局、键盘、对话框、分页遮罩隔离、形状裁剪、范围选项、语言、主题
 npm run qa:export   # 真实下载：3 页 ZIP 尺寸校验、JPG 文件头、PDF 用 pdf.js 回读校验
+npm run qa:image    # 图片输入：多图成页、缩略图文件名、跨页遮罩隔离、原分辨率导出、坏文件报错
 npm run qa:mobile   # 390 / 820 两档响应式（含 4 个导出范围是否溢出）
 npm run qa:demo     # 示例文档的预设遮罩是否压住文字
-npm run selftest    # 页内像素级断言：渲染、框选、撤销、形状、导出烘焙、PDF 回读
+npm run selftest    # 页内像素级断言：渲染、框选、撤销、形状、导出烘焙、PDF 回读、图片往返
 npm run qa          # 以上全部
 npm run make-pdf-sample   # 用示例文档真实导出一份 shots/masked-sample.pdf 供人工查看
 ```
@@ -177,14 +196,17 @@ npm run make-pdf-sample   # 用示例文档真实导出一份 shots/masked-sampl
 
 ## 安全与依赖
 
-- 纯前端，PDF 只在浏览器内存里，不会发起任何上传请求（`fetch` 只用于本地 `sample.pdf` 与 pdf.js 资源）
+- 纯前端，PDF / 图片只在浏览器内存里，不会发起任何上传请求（`fetch` 只用于本地 `sample.pdf` 与 pdf.js 资源）
 - `pdfjs-dist` 固定在 **6.5.x**：5.x 存在「打开恶意 PDF 可执行任意 JS」的公告（GHSA-hq66-cqwq-w95j），6.x 已修复
 - `npm audit` 当前 0 漏洞；图标库使用未废弃的 `@lucide/vue`
 
 ## 已知限制
 
 - 不支持加密 / 需要密码的 PDF（会给出明确提示）
-- 打码是**栅格化遮盖**，不修改原始 PDF；如需在 PDF 层面删除文本层，需要 OCR / 重新生成文档
+- 图片能否打开取决于**浏览器自己的解码器**：PNG / JPG / WebP / GIF / BMP / AVIF / SVG 在主流浏览器都可用；HEIC、TIFF 一般只有 Safari 或需要额外解码库，打不开时会提示换格式
+- 动图（GIF / 动态 WebP）按当前帧栅格化，导出的是静态图
+- 多张超大图片会整批解码后常驻内存，图片很多时首屏加载和内存占用都会明显上升（按需分页打开更稳）
+- 打码是**栅格化遮盖**，不修改原始文件；如需在 PDF 层面删除文本层，需要 OCR / 重新生成文档
 - 导出的 PDF 是**图片型**（每页一整张位图）：文字不可选中、不可搜索，体积也比原始文本 PDF 大得多；要保留文本层请导出 PNG/JPG 后自行合成
 - 缩略图为后台串行渲染，超长文档首屏会逐页补齐
 - 导出为纯前端实现，页数很多 + 300 DPI 时内存占用较高

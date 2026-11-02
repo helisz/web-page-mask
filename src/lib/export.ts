@@ -1,8 +1,7 @@
 import JSZip from 'jszip'
-import type { PDFDocumentProxy } from 'pdfjs-dist'
 import type { ExportSettings, Mask, PageSize } from '@/types'
+import type { SourceDoc } from './source'
 import { paintMasks } from './mosaic'
-import { getPageSize } from './pdf'
 import { encodePdfImage, PdfBuilder } from './pdfExport'
 import { sanitizeFileName, downloadBlob } from './utils'
 
@@ -59,25 +58,24 @@ export function computeExportSize(page: PageSize, settings: ExportSettings): Siz
 
 /** Render one page plus its masks into a fresh canvas of exactly `width` x `height`. */
 export async function renderPageBitmap(
-  doc: PDFDocumentProxy,
+  doc: SourceDoc,
   pageNumber: number,
   masks: Mask[],
-  page: PageSize,
   width: number,
   height: number,
 ): Promise<HTMLCanvasElement> {
-  const pdfPage = await doc.getPage(pageNumber)
-  const viewport = pdfPage.getViewport({ scale: width / page.width })
+  const page = await doc.getPage(pageNumber)
+  const scale = width / page.size.width
 
   const base = document.createElement('canvas')
-  base.width = Math.max(1, Math.round(viewport.width))
-  base.height = Math.max(1, Math.round(viewport.height))
+  base.width = Math.max(1, Math.round(page.size.width * scale))
+  base.height = Math.max(1, Math.round(page.size.height * scale))
   const baseCtx = base.getContext('2d')
   if (!baseCtx) throw new Error('2d context unavailable')
   baseCtx.fillStyle = '#ffffff'
   baseCtx.fillRect(0, 0, base.width, base.height)
 
-  await pdfPage.render({ canvas: base, viewport }).promise
+  await page.render(base, scale)
 
   const out = document.createElement('canvas')
   out.width = width
@@ -91,7 +89,7 @@ export async function renderPageBitmap(
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(base, 0, 0, base.width, base.height, 0, 0, width, height)
 
-  if (masks.length) paintMasks(ctx, base, masks, width / page.width)
+  if (masks.length) paintMasks(ctx, base, masks, width / page.size.width)
 
   base.width = 0
   base.height = 0
@@ -109,7 +107,7 @@ export function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality = 
 }
 
 export interface ExportRequest {
-  doc: PDFDocumentProxy
+  doc: SourceDoc
   pages: number[]
   masks: Mask[]
   settings: ExportSettings
@@ -141,7 +139,7 @@ export async function exportPages(request: ExportRequest): Promise<ExportResult>
 
   for (let index = 0; index < pages.length; index++) {
     const pageNumber = pages[index]!
-    const size = await getPageSize(doc, pageNumber)
+    const size = await doc.getPageSize(pageNumber)
     const target = computeExportSize(size, settings)
     if (target.clamped) clamped = true
 
@@ -149,7 +147,6 @@ export async function exportPages(request: ExportRequest): Promise<ExportResult>
       doc,
       pageNumber,
       masks.filter((mask) => mask.page === pageNumber),
-      size,
       target.width,
       target.height,
     )
@@ -200,7 +197,7 @@ async function exportPdf(request: ExportRequest): Promise<ExportResult> {
 
   for (let index = 0; index < pages.length; index++) {
     const pageNumber = pages[index]!
-    const size = await getPageSize(doc, pageNumber)
+    const size = await doc.getPageSize(pageNumber)
     const target = computeExportSize(size, settings)
     if (target.clamped) clamped = true
 
@@ -208,7 +205,6 @@ async function exportPdf(request: ExportRequest): Promise<ExportResult> {
       doc,
       pageNumber,
       masks.filter((mask) => mask.page === pageNumber),
-      size,
       target.width,
       target.height,
     )

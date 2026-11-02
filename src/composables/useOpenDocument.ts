@@ -1,17 +1,18 @@
-import { openPdfFile, openSamplePdf, state } from '@/stores/editor'
-import { pickPdfFile } from './useFilePicker'
+import { openDocument, openSamplePdf, state } from '@/stores/editor'
+import { pickFiles } from './useFilePicker'
 import { toast } from './useToast'
 import { t } from '@/i18n'
 
 export function loadErrorMessage(): string {
   if (!state.loadErrorKey) return ''
-  return t(state.loadErrorKey, { msg: state.loadErrorDetail })
+  return t(state.loadErrorKey, { msg: state.loadErrorDetail, name: state.loadErrorDetail })
 }
 
+/** Open whatever the user dropped/picked: one PDF or any number of images. */
 export async function openFiles(files: FileList | File[] | null): Promise<boolean> {
-  const file = files?.[0]
-  if (!file) return false
-  const ok = await openPdfFile(file)
+  const list = files ? Array.from(files) : []
+  if (!list.length) return false
+  const ok = await openDocument(list)
   if (!ok) {
     const message = loadErrorMessage()
     if (message) toast(message, 'error', 5000)
@@ -20,12 +21,12 @@ export async function openFiles(files: FileList | File[] | null): Promise<boolea
 }
 
 export function openFromPicker() {
-  pickPdfFile((file) => {
-    void openFiles([file])
+  pickFiles((files) => {
+    void openFiles(files)
   })
 }
 
-export async function loadSamplePdf(): Promise<boolean> {
+export async function loadSample(): Promise<boolean> {
   const ok = await openSamplePdf()
   if (!ok) {
     const message = loadErrorMessage()

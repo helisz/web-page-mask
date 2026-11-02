@@ -41,8 +41,10 @@ export function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 4000)
 }
 
+const KNOWN_EXTENSION = /\.(pdf|png|jpe?g|jfif|webp|gif|bmp|avif|svg|ico|heic|heif)$/i
+
 export function baseName(name: string) {
-  return name.replace(/\.pdf$/i, '').trim() || 'document'
+  return name.replace(KNOWN_EXTENSION, '').trim() || 'document'
 }
 
 export function sanitizeFileName(name: string) {

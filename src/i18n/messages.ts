@@ -1,10 +1,10 @@
 import type { Locale } from '@/types'
 
 const zhCN = {
-  'app.name': 'PDF 打码工具',
+  'app.name': 'PDF / 图片打码工具',
   'app.tagline': '本地处理 · 文件不上传',
 
-  'header.open': '打开 PDF',
+  'header.open': '打开文件',
   'header.change': '更换文件',
   'header.export': '导出图片',
   'header.language': '语言',
@@ -13,17 +13,18 @@ const zhCN = {
   'header.github': '在 GitHub 上查看源码',
   'header.sample': '打开示例',
 
-  'drop.title': '拖入 PDF，开始打码',
-  'drop.desc': '框选任意区域做马赛克、模糊或纯色遮盖，然后按页导出 PNG / JPG。',
-  'drop.choose': '选择 PDF 文件',
+  'drop.title': '拖入 PDF 或图片，开始打码',
+  'drop.desc': '框选任意区域做马赛克、模糊或纯色遮盖，然后按页导出 PNG / JPG / PDF。',
+  'drop.choose': '选择文件',
   'drop.sample': '先看看示例',
-  'drop.privacy': '所有渲染与导出都在你的浏览器本地完成，PDF 不会上传到任何服务器。',
-  'drop.hint': '也可以把文件直接拖进窗口',
-  'drop.badFile': '请选择 PDF 文件',
+  'drop.privacy': '所有渲染与导出都在你的浏览器本地完成，文件不会上传到任何服务器。',
+  'drop.hint': '也可以把 PDF 或图片直接拖进窗口，多张图片会按文件名顺序变成多页',
+  'drop.formats': '支持 PDF 与 PNG / JPG / WebP / GIF / BMP / AVIF / SVG 等常见图片格式',
+  'drop.badFile': '请选择 PDF 或图片文件（PNG / JPG / WebP 等）',
   'drop.shortcut': '⌘/Ctrl + O 打开文件',
 
-  'viewer.loading': '正在解析 PDF…',
-  'viewer.error': '无法打开这个 PDF',
+  'viewer.loading': '正在打开文件…',
+  'viewer.error': '无法打开这个文件',
   'viewer.retry': '重新选择文件',
 
   'toolbar.prev': '上一页',
@@ -127,7 +128,7 @@ const zhCN = {
   'shortcuts.undo': '撤销 / 重做',
   'shortcuts.cancel': '取消选择',
   'shortcuts.pan': '按住空格拖动平移',
-  'shortcuts.open': '打开 PDF',
+  'shortcuts.open': '打开文件',
   'shortcuts.tools': '框选 / 平移工具',
 
   'common.close': '关闭',
@@ -138,16 +139,17 @@ const zhCN = {
   'pdf.password': '这个 PDF 有密码保护，暂不支持打开',
   'pdf.invalid': '文件已损坏，或者不是有效的 PDF',
   'pdf.empty': '文件内容为空',
-  'pdf.unknown': '解析失败：{msg}',
+  'pdf.unknown': '打开失败：{msg}',
+  'image.decode': '无法读取「{name}」，当前浏览器解码不了这个图片格式，试试 PNG / JPG / WebP',
 } as const
 
 export type MessageKey = keyof typeof zhCN
 
 const zhTW: Record<MessageKey, string> = {
-  'app.name': 'PDF 打碼工具',
+  'app.name': 'PDF / 圖片打碼工具',
   'app.tagline': '本機處理 · 檔案不上傳',
 
-  'header.open': '開啟 PDF',
+  'header.open': '開啟檔案',
   'header.change': '更換檔案',
   'header.export': '匯出圖片',
   'header.language': '語言',
@@ -156,17 +158,18 @@ const zhTW: Record<MessageKey, string> = {
   'header.github': '在 GitHub 上檢視原始碼',
   'header.sample': '開啟範例',
 
-  'drop.title': '拖入 PDF，開始打碼',
-  'drop.desc': '框選任意區域做馬賽克、模糊或純色遮蓋，再按頁匯出 PNG / JPG。',
-  'drop.choose': '選擇 PDF 檔案',
+  'drop.title': '拖入 PDF 或圖片，開始打碼',
+  'drop.desc': '框選任意區域做馬賽克、模糊或純色遮蓋，再按頁匯出 PNG / JPG / PDF。',
+  'drop.choose': '選擇檔案',
   'drop.sample': '先看看範例',
-  'drop.privacy': '所有渲染與匯出都在你的瀏覽器本機完成，PDF 不會上傳到任何伺服器。',
-  'drop.hint': '也可以把檔案直接拖進視窗',
-  'drop.badFile': '請選擇 PDF 檔案',
+  'drop.privacy': '所有渲染與匯出都在你的瀏覽器本機完成，檔案不會上傳到任何伺服器。',
+  'drop.hint': '也可以把 PDF 或圖片直接拖進視窗，多張圖片會依檔名順序變成多頁',
+  'drop.formats': '支援 PDF 與 PNG / JPG / WebP / GIF / BMP / AVIF / SVG 等常見圖片格式',
+  'drop.badFile': '請選擇 PDF 或圖片檔案（PNG / JPG / WebP 等）',
   'drop.shortcut': '⌘/Ctrl + O 開啟檔案',
 
-  'viewer.loading': '正在解析 PDF…',
-  'viewer.error': '無法開啟這個 PDF',
+  'viewer.loading': '正在開啟檔案…',
+  'viewer.error': '無法開啟這個檔案',
   'viewer.retry': '重新選擇檔案',
 
   'toolbar.prev': '上一頁',
@@ -270,7 +273,7 @@ const zhTW: Record<MessageKey, string> = {
   'shortcuts.undo': '復原 / 重做',
   'shortcuts.cancel': '取消選取',
   'shortcuts.pan': '按住空白鍵拖動平移',
-  'shortcuts.open': '開啟 PDF',
+  'shortcuts.open': '開啟檔案',
   'shortcuts.tools': '框選 / 平移工具',
 
   'common.close': '關閉',
@@ -281,14 +284,15 @@ const zhTW: Record<MessageKey, string> = {
   'pdf.password': '這個 PDF 有密碼保護，暫不支援開啟',
   'pdf.invalid': '檔案已損壞，或者不是有效的 PDF',
   'pdf.empty': '檔案內容為空',
-  'pdf.unknown': '解析失敗：{msg}',
+  'pdf.unknown': '開啟失敗：{msg}',
+  'image.decode': '無法讀取「{name}」，目前瀏覽器解不開這個圖片格式，試試 PNG / JPG / WebP',
 }
 
 const en: Record<MessageKey, string> = {
-  'app.name': 'PDF Mask',
+  'app.name': 'PDF & Image Mask',
   'app.tagline': 'Runs locally · nothing uploaded',
 
-  'header.open': 'Open PDF',
+  'header.open': 'Open file',
   'header.change': 'Replace',
   'header.export': 'Export',
   'header.language': 'Language',
@@ -297,18 +301,19 @@ const en: Record<MessageKey, string> = {
   'header.github': 'View source on GitHub',
   'header.sample': 'Open sample',
 
-  'drop.title': 'Drop a PDF to start masking',
+  'drop.title': 'Drop a PDF or image to start masking',
   'drop.desc':
-    'Select any region and pixelate, blur or cover it, then export pages as PNG / JPG.',
-  'drop.choose': 'Choose PDF',
+    'Select any region and pixelate, blur or cover it, then export pages as PNG / JPG / PDF.',
+  'drop.choose': 'Choose files',
   'drop.sample': 'Try the sample',
   'drop.privacy': 'Rendering and exporting happen entirely in your browser. Files never leave this device.',
-  'drop.hint': 'You can also drag a file anywhere in the window',
-  'drop.badFile': 'Please choose a PDF file',
+  'drop.hint': 'Drag a PDF or images anywhere in the window — several images become pages, sorted by name',
+  'drop.formats': 'Works with PDF and PNG / JPG / WebP / GIF / BMP / AVIF / SVG images',
+  'drop.badFile': 'Please choose a PDF or image file (PNG / JPG / WebP …)',
   'drop.shortcut': '⌘/Ctrl + O to open',
 
-  'viewer.loading': 'Reading PDF…',
-  'viewer.error': 'Could not open this PDF',
+  'viewer.loading': 'Opening file…',
+  'viewer.error': 'Could not open this file',
   'viewer.retry': 'Choose another file',
 
   'toolbar.prev': 'Previous page',
@@ -412,7 +417,7 @@ const en: Record<MessageKey, string> = {
   'shortcuts.undo': 'Undo / redo',
   'shortcuts.cancel': 'Clear selection',
   'shortcuts.pan': 'Hold space and drag to pan',
-  'shortcuts.open': 'Open a PDF',
+  'shortcuts.open': 'Open a file',
   'shortcuts.tools': 'Select / pan tool',
 
   'common.close': 'Close',
@@ -423,7 +428,9 @@ const en: Record<MessageKey, string> = {
   'pdf.password': 'This PDF is password protected and cannot be opened yet',
   'pdf.invalid': 'The file is damaged or is not a valid PDF',
   'pdf.empty': 'The file is empty',
-  'pdf.unknown': 'Could not parse the file: {msg}',
+  'pdf.unknown': 'Could not open the file: {msg}',
+  'image.decode':
+    'Could not decode “{name}” — this browser does not support that image format, try PNG / JPG / WebP',
 }
 
 export const messages: Record<Locale, Record<MessageKey, string>> = {

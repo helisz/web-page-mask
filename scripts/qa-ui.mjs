@@ -292,7 +292,7 @@ const script = String.raw`
     await wait(400)
   }
   const title = $('header .text-sm.font-semibold')
-  check('language switches to zh-TW', text(title) === 'PDF 打碼工具', { title: text(title), lang: document.documentElement.lang })
+  check('language switches to zh-TW', text(title) === 'PDF / 圖片打碼工具', { title: text(title), lang: document.documentElement.lang })
   const missingAfter = (document.body.innerText.match(/\b(app|header|drop|panel|export|toolbar|shortcuts|thumb|viewer|common|pdf)\.[a-zA-Z][a-zA-Z.]*/g) || [])
   check('zh-TW strings complete', missingAfter.length === 0, missingAfter.slice(0, 5))
 

@@ -7,6 +7,7 @@ import {
   addMask,
   doc,
   masksOf,
+  openDocument,
   recordChange,
   redo,
   removeMask,
@@ -19,7 +20,6 @@ import {
 } from '@/stores/editor'
 import { getDocument } from 'pdfjs-dist'
 import { canvasToBlob, computeExportSize, renderPageBitmap } from '@/lib/export'
-import { getPageSize } from '@/lib/pdf'
 import { encodePdfImage, PdfBuilder } from '@/lib/pdfExport'
 import type { PageSize } from '@/types'
 
@@ -104,11 +104,9 @@ function darkRatio(canvas: HTMLCanvasElement, size = 320) {
 }
 
 async function pageOneSize(): Promise<PageSize> {
-  const pdf = doc.value
-  if (!pdf) throw new Error('no document')
-  const page = await pdf.getPage(1)
-  const viewport = page.getViewport({ scale: 1 })
-  return { width: viewport.width, height: viewport.height }
+  const source = doc.value
+  if (!source) throw new Error('no document')
+  return source.getPageSize(1)
 }
 
 export async function runSelfTest(): Promise<void> {
@@ -227,8 +225,8 @@ export async function runSelfTest(): Promise<void> {
   )
 
   const masks = masksOf(1)
-  const withMasks = await renderPageBitmap(doc.value!, 1, masks, size, output.width, output.height)
-  const withoutMasks = await renderPageBitmap(doc.value!, 1, [], size, output.width, output.height)
+  const withMasks = await renderPageBitmap(doc.value!, 1, masks, output.width, output.height)
+  const withoutMasks = await renderPageBitmap(doc.value!, 1, [], output.width, output.height)
   const baked = pixelAt(withMasks, 0.4, 0.23)
   const clean = pixelAt(withoutMasks, 0.4, 0.23)
   const cornerBaked = pixelAt(withMasks, 0.95, 0.95)
@@ -310,11 +308,10 @@ export async function runSelfTest(): Promise<void> {
     doc.value!,
     1,
     [circleMask],
-    size,
     output.width,
     output.height,
   )
-  const cleanPage = await renderPageBitmap(doc.value!, 1, [], size, output.width, output.height)
+  const cleanPage = await renderPageBitmap(doc.value!, 1, [], output.width, output.height)
   const exportedCenter = pixelAt(circular, circleMask.x + circleMask.w / 2, circleMask.y + circleMask.h / 2)
   const exportedCorner = pixelAt(circular, circleMask.x + circleMask.w * 0.02, circleMask.y + circleMask.h * 0.02)
   const cleanCorner = pixelAt(cleanPage, circleMask.x + circleMask.w * 0.02, circleMask.y + circleMask.h * 0.02)
@@ -332,18 +329,17 @@ export async function runSelfTest(): Promise<void> {
   await wait(120)
 
   // --- pdf export -----------------------------------------------------
-  const firstSize = await getPageSize(doc.value!, 1)
+  const firstSize = await doc.value!.getPageSize(1)
   const pdfTarget = computeExportSize(firstSize, { ...settings, format: 'pdf', dpi: 96 })
   const builder = new PdfBuilder()
   const pdfSources: HTMLCanvasElement[] = []
   const pdfImages = []
   for (const pageNumber of [1, 2]) {
-    const pageSize = await getPageSize(doc.value!, pageNumber)
+    const pageSize = await doc.value!.getPageSize(pageNumber)
     const bitmap = await renderPageBitmap(
       doc.value!,
       pageNumber,
       masksOf(pageNumber),
-      pageSize,
       pdfTarget.width,
       pdfTarget.height,
     )
@@ -469,7 +465,6 @@ export async function runSelfTest(): Promise<void> {
     doc.value!,
     1,
     [],
-    firstSize,
     pdfTarget.width,
     pdfTarget.height,
   )
@@ -494,10 +489,75 @@ export async function runSelfTest(): Promise<void> {
   setZoom(state.zoom)
   const panel = document.querySelector('aside.absolute, aside')
   check('panel mounted', !!panel, { html: panel ? panel.className.slice(0, 60) : null })
+
+  // --- image input -----------------------------------------------------
+  const imageFile = await makeImageFile(400, 250, '#22c55e')
+  const openedImage = await openDocument([imageFile])
+  check('image document opens', openedImage && doc.value?.kind === 'image', {
+    opened: openedImage,
+    kind: doc.value?.kind ?? null,
+    pages: state.pageCount,
+  })
+  if (openedImage) {
+    const imageSize = await doc.value!.getPageSize(1)
+    check(
+      'image page keeps its pixel size',
+      imageSize.width === 400 && imageSize.height === 250,
+      imageSize,
+    )
+
+    await waitFor(() => (pageCanvas()?.width ?? 0) > 100, 10000)
+    await wait(120)
+
+    const cleanImage = await renderPageBitmap(doc.value!, 1, [], 400, 250)
+    const cleanPixel = pixelAt(cleanImage, 0.5, 0.5)
+    check('image pixels reach the export canvas', cleanPixel[1] > 180 && cleanPixel[0] < 120, {
+      pixel: cleanPixel,
+    })
+
+    const imageMaskBefore = snapshotMasks()
+    addMask({ page: 1, x: 0.25, y: 0.25, w: 0.5, h: 0.5, style: 'solid', color: '#ff00ff' })
+    recordChange(imageMaskBefore)
+
+    const bakedImage = await renderPageBitmap(doc.value!, 1, masksOf(1), 400, 250)
+    const imageCenter = pixelAt(bakedImage, 0.5, 0.5)
+    const imageCorner = pixelAt(bakedImage, 0.05, 0.05)
+    check('image export bakes the mask', imageCenter[0] > 200 && imageCenter[2] > 200, {
+      center: imageCenter,
+    })
+    check(
+      'image export leaves the rest untouched',
+      Math.abs(imageCorner[1] - cleanPixel[1]) < 6 && Math.abs(imageCorner[0] - cleanPixel[0]) < 6,
+      { corner: imageCorner, clean: cleanPixel },
+    )
+
+    const nativeSize = computeExportSize(imageSize, { ...settings, sizeMode: 'dpi', dpi: 72 })
+    check(
+      '72 dpi export equals native image resolution',
+      nativeSize.width === 400 && nativeSize.height === 250,
+      nativeSize,
+    )
+
+    bakedImage.width = 0
+    cleanImage.width = 0
+  }
+
   check('no runtime errors', errors.length === 0, errors)
 
   selectMask(null)
   finish(steps, errors)
+}
+
+async function makeImageFile(width: number, height: number, color: string): Promise<File> {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('2d context unavailable')
+  ctx.fillStyle = color
+  ctx.fillRect(0, 0, width, height)
+  const blob = await canvasToBlob(canvas, 'image/png')
+  return new File([blob], 'selftest.png', { type: 'image/png' })
 }
 
 function finish(steps: Step[], errors: string[]) {

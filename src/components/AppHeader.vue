@@ -4,6 +4,7 @@ import {
   Download,
   FilePlus2,
   FileText,
+  Images,
   Keyboard,
   Moon,
   ScanLine,
@@ -19,8 +20,8 @@ import { t } from '@/i18n'
 import { localeNames } from '@/i18n/messages'
 import type { Locale } from '@/types'
 import { doc, openHelp, setLocale, setTheme, state } from '@/stores/editor'
-import { pickPdfFile } from '@/composables/useFilePicker'
-import { openFiles } from '@/composables/useOpenPdf'
+import { pickFiles } from '@/composables/useFilePicker'
+import { openFiles } from '@/composables/useOpenDocument'
 
 // overridable per deployment: VITE_REPO_URL=https://github.com/you/your-fork
 const repoUrl =
@@ -40,8 +41,8 @@ const locale = computed({
 })
 
 function pickFile() {
-  pickPdfFile((file) => {
-    void openFiles([file])
+  pickFiles((files) => {
+    void openFiles(files)
   })
 }
 
@@ -70,7 +71,8 @@ function toggleTheme() {
       v-if="state.fileName && doc"
       class="hidden min-w-0 items-center gap-2 rounded-md border border-border/70 bg-background/50 px-2.5 py-1 text-[11px] text-muted-foreground lg:flex"
     >
-      <FileText class="size-3.5 shrink-0" />
+      <Images v-if="doc?.kind === 'image'" class="size-3.5 shrink-0" />
+      <FileText v-else class="size-3.5 shrink-0" />
       <span class="max-w-[240px] truncate text-foreground/85">{{ state.fileName }}</span>
       <span class="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px]">
         {{ state.pageCount }} {{ t('common.page') }}

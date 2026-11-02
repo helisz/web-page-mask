@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { PDFPageProxy, RenderTask } from 'pdfjs-dist'
+import type { DocPage } from '@/lib/source'
 import {
   addMask,
   doc,
   fitTo,
   masksOf,
+  MAX_ZOOM,
+  MIN_ZOOM,
   recordChange,
   selectMask,
   snapshotMasks,
@@ -46,9 +48,8 @@ const stageClass = computed(() =>
 
 const draft = ref<Rect | null>(null)
 
-let pdfPage: PDFPageProxy | null = null
+let currentPage: DocPage | null = null
 let loadedPageNumber = 0
-let renderTask: RenderTask | null = null
 let token = 0
 let frame = 0
 let resizeObserver: ResizeObserver | null = null
@@ -66,16 +67,15 @@ function deviceRatio() {
   return Math.max(0.4, dpr * Math.sqrt(maxPixels / (w * h)))
 }
 
-async function ensurePage(): Promise<PDFPageProxy | null> {
+async function ensurePage(): Promise<DocPage | null> {
   const current = doc.value
   if (!current) return null
-  if (pdfPage && loadedPageNumber === state.page) return pdfPage
+  if (currentPage && loadedPageNumber === state.page) return currentPage
   const next = await current.getPage(state.page)
   if (!doc.value) return null
-  pdfPage = next
+  currentPage = next
   loadedPageNumber = next.pageNumber
-  const viewport = next.getViewport({ scale: 1 })
-  state.pageSize = { width: viewport.width, height: viewport.height }
+  state.pageSize = next.size
   return next
 }
 
@@ -105,9 +105,8 @@ async function renderPage() {
   if (!page || local !== token) return
 
   const scale = state.zoom * deviceRatio()
-  const viewport = page.getViewport({ scale })
-  const width = Math.max(1, Math.floor(viewport.width))
-  const height = Math.max(1, Math.floor(viewport.height))
+  const width = Math.max(1, Math.floor(page.size.width * scale))
+  const height = Math.max(1, Math.floor(page.size.height * scale))
 
   canvas.width = width
   canvas.height = height
@@ -119,27 +118,12 @@ async function renderPage() {
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, width, height)
 
-  if (renderTask) {
-    try {
-      renderTask.cancel()
-    } catch {
-      /* ignore */
-    }
-    renderTask = null
-  }
-
   await exclusiveRender(async () => {
     if (local !== token) return
-    const task = page.render({ canvas, viewport })
-    renderTask = task
     try {
-      await task.promise
+      await page.render(canvas, scale)
     } catch (error) {
-      if ((error as { name?: string })?.name !== 'RenderingCancelledException') {
-        console.error('[viewer] render failed', error)
-      }
-    } finally {
-      if (renderTask === task) renderTask = null
+      console.error('[viewer] render failed', error)
     }
   })
 
@@ -206,13 +190,7 @@ onBeforeUnmount(() => {
   scrollEl.value?.removeEventListener('wheel', onWheel)
   if (frame) cancelAnimationFrame(frame)
   token++
-  if (renderTask) {
-    try {
-      renderTask.cancel()
-    } catch {
-      /* ignore */
-    }
-  }
+  currentPage?.cancel()
   detachDrag()
   detachPan()
 })
@@ -220,7 +198,8 @@ onBeforeUnmount(() => {
 watch(
   () => doc.value,
   async (value) => {
-    pdfPage = null
+    currentPage?.cancel()
+    currentPage = null
     loadedPageNumber = 0
     token++
     if (!value) {
@@ -236,7 +215,9 @@ watch(
 watch(
   () => state.page,
   async () => {
-    pdfPage = null
+    token++
+    currentPage?.cancel()
+    currentPage = null
     loadedPageNumber = 0
     const el = scrollEl.value
     if (el) {
@@ -274,7 +255,7 @@ async function onWheel(event: WheelEvent) {
   const pointY = event.clientY - rect.top
   const before = { left: el.scrollLeft, top: el.scrollTop, zoom: state.zoom }
   const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12
-  const next = clamp(state.zoom * factor, 0.1, 8)
+  const next = clamp(state.zoom * factor, MIN_ZOOM, MAX_ZOOM)
   if (next === state.zoom) return
   state.zoom = next
   state.fitMode = 'custom'
