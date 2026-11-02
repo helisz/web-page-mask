@@ -1,0 +1,42 @@
+{
+  "name": "web-page-mask",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node scripts/copy-pdfjs-assets.mjs && vite",
+    "build": "node scripts/copy-pdfjs-assets.mjs && vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "make-sample": "node scripts/make-sample.mjs",
+    "selftest": "node scripts/qa.mjs",
+    "qa:ui": "node scripts/qa-ui.mjs",
+    "qa:export": "node scripts/qa-export.mjs",
+    "qa:mobile": "node scripts/qa-mobile.mjs",
+    "qa:demo": "node scripts/qa-demo.mjs",
+    "qa": "node scripts/qa.mjs && node scripts/qa-ui.mjs && node scripts/qa-export.mjs && node scripts/qa-mobile.mjs && node scripts/qa-demo.mjs"
+  },
+  "dependencies": {
+    "@lucide/vue": "^1.66.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "jszip": "^3.10.2",
+    "pdfjs-dist": "^6.5.438",
+    "reka-ui": "^2.11.0",
+    "tailwind-merge": "^3.7.0",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.6",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.7",
+    "vue-tsc": "^3.3.14",
+    "ws": "^8.22.1"
+  }
+}

@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>示例文档 · 打码演示</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
+        color: #111827;
+        font-size: 11pt;
+        line-height: 1.5;
+      }
+      .page {
+        position: relative;
+        width: 210mm;
+        height: 297mm;
+        padding: 18mm 20mm;
+        box-sizing: border-box;
+        page-break-after: always;
+        overflow: hidden;
+      }
+      .page:last-child {
+        page-break-after: auto;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 9pt;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: #6b7280;
+      }
+      .brand i {
+        display: inline-block;
+        width: 26px;
+        height: 3px;
+        background: #111827;
+      }
+      h1 {
+        margin: 10px 0 4px;
+        font-size: 21pt;
+        letter-spacing: -0.01em;
+      }
+      .lede {
+        margin: 0 0 18px;
+        color: #4b5563;
+        font-size: 10pt;
+      }
+      .section {
+        margin-top: 14px;
+      }
+      .section > h2 {
+        margin: 0 0 8px;
+        font-size: 11pt;
+        letter-spacing: 0.02em;
+        color: #111827;
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 5px;
+      }
+      .rows {
+        display: grid;
+        grid-template-columns: 96px 1fr;
+        row-gap: 9px;
+        font-size: 10.5pt;
+      }
+      .rows dt {
+        color: #6b7280;
+      }
+      .rows dd {
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      .note {
+        margin-top: 18px;
+        padding: 10px 12px;
+        background: #f3f4f6;
+        border-radius: 6px;
+        font-size: 9.5pt;
+        color: #374151;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9.5pt;
+        margin-top: 6px;
+      }
+      th,
+      td {
+        border-bottom: 1px solid #e5e7eb;
+        padding: 7px 6px;
+        text-align: left;
+      }
+      th {
+        color: #6b7280;
+        font-weight: 600;
+      }
+      td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .stamp {
+        position: absolute;
+        right: 20mm;
+        bottom: 18mm;
+        font-size: 9pt;
+        color: #9ca3af;
+        text-align: right;
+      }
+      .banner {
+        margin-top: 10px;
+        padding: 12px 14px;
+        border: 1px solid #fde68a;
+        background: #fffbeb;
+        border-radius: 8px;
+        font-size: 9.5pt;
+        color: #92400e;
+      }
+      p.body {
+        margin: 0 0 10px;
+        font-size: 10.5pt;
+        color: #374151;
+        text-align: justify;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="page">
+      <div class="brand"><i></i> Confidential · 示例</div>
+      <h1>客户资料登记表</h1>
+      <p class="lede">本文件用于演示「PDF 打码工具」，全部姓名、证件号与金额均为虚构数据。</p>
+
+      <div class="section">
+        <h2>01 · 个人信息</h2>
+        <dl class="rows">
+          <dt>姓名</dt>
+          <dd>张三</dd>
+          <dt>身份证号</dt>
+          <dd>110101199003071234</dd>
+          <dt>手机号码</dt>
+          <dd>138 0013 8000</dd>
+          <dt>家庭住址</dt>
+          <dd>北京市朝阳区建国路 88 号 3 单元 1201 室</dd>
+          <dt>电子邮箱</dt>
+          <dd>zhangsan@example.com</dd>
+          <dt>银行卡号</dt>
+          <dd>6222 0212 3456 7890 123</dd>
+        </dl>
+      </div>
+
+      <div class="section">
+        <h2>02 · 订单信息</h2>
+        <dl class="rows">
+          <dt>订单号</dt>
+          <dd>SO-2026-1102-0001</dd>
+          <dt>下单时间</dt>
+          <dd>2026-11-02 09:12</dd>
+          <dt>收货地址</dt>
+          <dd>北京市朝阳区建国路 88 号 3 单元 1201 室</dd>
+        </dl>
+      </div>
+
+      <div class="note">
+        提示：在工具中拖拽框选「身份证号」「家庭住址」「银行卡号」所在的区域，即可实时生成马赛克，
+        并可通过右侧面板调整单块大小、切换模糊或纯色遮盖。
+      </div>
+
+      <div class="stamp">第 1 页 / 共 3 页</div>
+    </section>
+
+    <section class="page">
+      <div class="brand"><i></i> Confidential · 示例</div>
+      <h1>服务协议摘要</h1>
+      <p class="lede">本摘要仅用于演示，不构成任何法律文件。</p>
+
+      <p class="body">
+        第一条　甲方委托乙方就客户资料数字化项目提供技术支持服务，服务范围包括文档扫描、数据录入、
+        质量校验以及归档交付。乙方应当按照双方确认的进度计划完成各阶段工作，并在每个阶段结束后提交
+        阶段性成果报告。
+      </p>
+      <p class="body">
+        第二条　乙方在履行本合同过程中接触到的客户资料、身份证件信息、联系方式及交易记录，均属于保密
+        信息。未经甲方书面同意，乙方不得向任何第三方披露、复制或者用于本项目之外的用途。
+      </p>
+      <p class="body">
+        第三条　项目验收以抽样检查的方式进行。抽样比例为全部记录的百分之五，若不合格率超过百分之一，
+        乙方应当在十个工作日内完成整改并重新提交验收。
+      </p>
+      <p class="body">
+        第四条　本合同项下的服务费用按阶段结算。甲方在收到乙方开具的发票后十五个工作日内支付相应款项。
+        逾期支付的，应当按照每日万分之三的标准支付违约金。
+      </p>
+      <p class="body">
+        第五条　本摘要自双方签字盖章之日起生效，有效期至项目验收合格之日止。未尽事宜由双方另行协商，
+        并以书面补充协议的形式确认。
+      </p>
+
+      <div class="section">
+        <h2>联系人</h2>
+        <dl class="rows">
+          <dt>甲方联系人</dt>
+          <dd>李四　138 0013 8001</dd>
+          <dt>乙方联系人</dt>
+          <dd>王五　138 0013 8002</dd>
+          <dt>联系邮箱</dt>
+          <dd>contact@example.com</dd>
+        </dl>
+      </div>
+
+      <div class="stamp">第 2 页 / 共 3 页</div>
+    </section>
+
+    <section class="page">
+      <div class="brand"><i></i> Confidential · 示例</div>
+      <h1>费用结算明细</h1>
+      <p class="lede">金额单位为人民币元，含税。</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>项目</th>
+            <th>数量</th>
+            <th>单价</th>
+            <th style="text-align: right">金额</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>文档扫描与预处理</td><td>12,000 页</td><td>0.35</td><td class="num">4,200.00</td></tr>
+          <tr><td>结构化数据录入</td><td>8,400 条</td><td>1.20</td><td class="num">10,080.00</td></tr>
+          <tr><td>质量抽检与复核</td><td>420 项</td><td>15.00</td><td class="num">6,300.00</td></tr>
+          <tr><td>归档与交付</td><td>1 批</td><td>3,500.00</td><td class="num">3,500.00</td></tr>
+          <tr><td>加密存储（首年）</td><td>1 年</td><td>8,800.00</td><td class="num">8,800.00</td></tr>
+        </tbody>
+      </table>
+
+      <div class="section">
+        <h2>银行账户</h2>
+        <dl class="rows">
+          <dt>开户行</dt>
+          <dd>示例银行北京朝阳支行</dd>
+          <dt>户名</dt>
+          <dd>北京示例科技有限公司</dd>
+          <dt>账号</dt>
+          <dd>1109 2012 3456 7890 012</dd>
+        </dl>
+      </div>
+
+      <div class="banner">
+        注意：此页表格中的金额与银行账号属于敏感信息，导出图片前请先完成打码处理。
+      </div>
+
+      <div class="stamp">第 3 页 / 共 3 页</div>
+    </section>
+  </body>
+</html>
