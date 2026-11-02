@@ -1,7 +1,9 @@
 # PDF 打码工具 · web-page-mask
 
-纯前端的 PDF 遮盖工具：上传 PDF → 框选区域 → 马赛克 / 模糊 / 纯色 → 按页导出 PNG / JPG。
+纯前端的 PDF 遮盖工具：上传 PDF → 框选区域 → 马赛克 / 模糊 / 纯色 → 按页导出 PNG / JPG / PDF。
 所有渲染与导出都在浏览器本地完成，**PDF 不会上传到任何服务器**。
+
+在线试用：<https://helisz.github.io/web-page-mask/>
 
 技术栈：Vue 3 + TypeScript + Vite + Tailwind CSS v4 + shadcn-vue 风格组件（基于 reka-ui 原语）+ pdf.js v6 + JSZip。
 
@@ -201,7 +203,7 @@ npm run make-pdf-sample   # 用示例文档真实导出一份 shots/masked-sampl
 - `vite.config.ts` 会读 `GITHUB_ACTIONS` / `GITHUB_REPOSITORY`，自动把 `base` 设成 `/<repo>/`，所以 fork、改仓库名都不用改配置；`<user>.github.io` 这种用户站点仓库自动使用根路径 `/`
 - pdf.js 的 cmaps / 标准字体 / wasm 在构建时复制进 `dist/pdfjs`，worker、`sample.pdf` 和图标都走 `BASE_URL`，部署到子路径不会 404
 - `public/.nojekyll` 会进产物，避免 Jekyll 处理下划线开头的文件
-- 第一次部署前若没开 Pages（Source = GitHub Actions），workflow 会在 `configure-pages` 一步报 `Get Pages site failed`
+- 本仓库已实测：push 后 Actions 直接构建并发布成功，无需额外开启。若你的 fork 在 `configure-pages` 一步报 `Get Pages site failed`，去 **Settings → Pages** 把 Source 切成 **GitHub Actions**，再重跑一次 workflow
 
 本地复现 Pages 的子路径构建：
 
