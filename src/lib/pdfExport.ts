@@ -40,11 +40,13 @@ export async function encodePdfImage(canvas: HTMLCanvasElement, quality = 0.92):
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('2d context unavailable')
     const rgba = ctx.getImageData(0, 0, width, height).data
-    const stride = width * 3 + 1
+
+    // Plain RGB rows, no PNG predictor: /Length then matches width * 3 * height
+    // exactly, and deflate can still exploit repeated rows across the page.
+    const stride = width * 3
     const raw = new Uint8Array(stride * height)
     let out = 0
     for (let y = 0; y < height; y++) {
-      raw[out++] = 0 // PNG-style filter byte: none
       let src = y * width * 4
       for (let x = 0; x < width; x++) {
         raw[out++] = rgba[src]!

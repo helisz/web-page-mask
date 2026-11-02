@@ -29,6 +29,13 @@ interface Step {
   detail?: unknown
 }
 
+async function inflateBytes(bytes: Uint8Array): Promise<Uint8Array> {
+  const stream = new Blob([bytes as unknown as BlobPart])
+    .stream()
+    .pipeThrough(new DecompressionStream('deflate'))
+  return new Uint8Array(await new Response(stream).arrayBuffer())
+}
+
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function waitFor(predicate: () => boolean, timeout = 15000) {
@@ -329,6 +336,7 @@ export async function runSelfTest(): Promise<void> {
   const pdfTarget = computeExportSize(firstSize, { ...settings, format: 'pdf', dpi: 96 })
   const builder = new PdfBuilder()
   const pdfSources: HTMLCanvasElement[] = []
+  const pdfImages = []
   for (const pageNumber of [1, 2]) {
     const pageSize = await getPageSize(doc.value!, pageNumber)
     const bitmap = await renderPageBitmap(
@@ -339,7 +347,9 @@ export async function runSelfTest(): Promise<void> {
       pdfTarget.width,
       pdfTarget.height,
     )
-    builder.add(await encodePdfImage(bitmap), pageSize)
+    const encoded = await encodePdfImage(bitmap)
+    pdfImages.push(encoded)
+    builder.add(encoded, pageSize)
     pdfSources.push(bitmap)
   }
   const pdfBlob = builder.build()
@@ -363,6 +373,42 @@ export async function runSelfTest(): Promise<void> {
       images: (pdfText.match(/\/Subtype \/Image/g) ?? []).length,
     },
   )
+  check(
+    'pdf image streams carry no stray predictor data',
+    !/\/DecodeParms/.test(pdfText) && !/\/Predictor/.test(pdfText),
+    { headers: (pdfText.match(/\/DecodeParms[^\n]*/g) ?? []).slice(0, 2) },
+  )
+
+  // the embedded stream must decode back to exactly the exported bitmap,
+  // otherwise every row shifts and the page looks sheared
+  const encodedFirst = pdfImages[0]!
+  const inflated = await inflateBytes(encodedFirst.bytes)
+  const stride = encodedFirst.width * 3
+  const expected = stride * encodedFirst.height
+  const sourceCtx = pdfSources[0]!.getContext('2d')!
+  const sourceData = sourceCtx.getImageData(0, 0, encodedFirst.width, encodedFirst.height).data
+
+  let mismatch = 0
+  let worstChannelDiff = 0
+  for (let y = 0; y < encodedFirst.height; y += 3) {
+    const base = y * stride
+    for (let x = 0; x < encodedFirst.width; x += 5) {
+      const src = (y * encodedFirst.width + x) * 4
+      for (let channel = 0; channel < 3; channel++) {
+        const diff = Math.abs(inflated[base + x * 3 + channel]! - sourceData[src + channel]!)
+        if (diff > 0) mismatch++
+        if (diff > worstChannelDiff) worstChannelDiff = diff
+      }
+    }
+  }
+  check('pdf image stream inflates to width x height x 3', inflated.length === expected, {
+    inflated: inflated.length,
+    expected,
+  })
+  check('pdf image stream decodes back to the bitmap', mismatch === 0 && worstChannelDiff === 0, {
+    mismatch,
+    worstChannelDiff,
+  })
 
   const parsedTask = getDocument({ data: pdfBytes.slice() })
   const parsed = await parsedTask.promise
@@ -380,35 +426,61 @@ export async function runSelfTest(): Promise<void> {
     },
   )
 
+  // render the PDF page at the exact resolution of the embedded bitmap, so a
+  // sheared / shifted image shows up immediately as a large pixel difference
+  const renderScale = pdfSources[0]!.width / unitViewport.width
+  const pdfViewport = parsedPage.getViewport({ scale: renderScale })
   const pdfCanvas = document.createElement('canvas')
-  pdfCanvas.width = Math.round(unitViewport.width)
-  pdfCanvas.height = Math.round(unitViewport.height)
-  await parsedPage.render({ canvas: pdfCanvas, viewport: unitViewport }).promise
+  pdfCanvas.width = Math.round(pdfViewport.width)
+  pdfCanvas.height = Math.round(pdfViewport.height)
+  await parsedPage.render({ canvas: pdfCanvas, viewport: pdfViewport }).promise
 
-  const originalCanvas = document.createElement('canvas')
-  originalCanvas.width = pdfCanvas.width
-  originalCanvas.height = pdfCanvas.height
-  const originalPage = await doc.value!.getPage(1)
-  await originalPage.render({ canvas: originalCanvas, viewport: unitViewport }).promise
+  const pdfCtx = pdfCanvas.getContext('2d')!
+  const pdfData = pdfCtx.getImageData(0, 0, pdfCanvas.width, pdfCanvas.height).data
+  let totalDiff = 0
+  let samples = 0
+  let worstPixel = 0
+  for (let gy = 1; gy <= 10; gy++) {
+    for (let gx = 1; gx <= 10; gx++) {
+      const x = Math.round((pdfCanvas.width * gx) / 11)
+      const y = Math.round((pdfCanvas.height * gy) / 11)
+      const sx = Math.round((encodedFirst.width * gx) / 11)
+      const sy = Math.round((encodedFirst.height * gy) / 11)
+      const source = (sy * encodedFirst.width + sx) * 4
+      const target = (y * pdfCanvas.width + x) * 4
+      const diff =
+        Math.abs(pdfData[target]! - sourceData[source]!) +
+        Math.abs(pdfData[target + 1]! - sourceData[source + 1]!) +
+        Math.abs(pdfData[target + 2]! - sourceData[source + 2]!)
+      totalDiff += diff
+      worstPixel = Math.max(worstPixel, diff)
+      samples++
+    }
+  }
+  check(
+    'pdf page renders like the source bitmap (no shear)',
+    totalDiff / samples < 12 && worstPixel < 140,
+    { meanDiff: Number((totalDiff / samples).toFixed(2)), worstPixel, samples },
+  )
 
-  const pdfMaskedPixel = pixelAt(pdfCanvas, 0.4, 0.23)
-  const originalMaskedPixel = pixelAt(originalCanvas, 0.4, 0.23)
-  const pdfCleanPixel = pixelAt(pdfCanvas, 0.93, 0.93)
-  const originalCleanPixel = pixelAt(originalCanvas, 0.93, 0.93)
+  const maskCenterX = target.x + target.w / 2
+  const maskCenterY = target.y + target.h / 2
+  const cleanBitmap = await renderPageBitmap(
+    doc.value!,
+    1,
+    [],
+    firstSize,
+    pdfTarget.width,
+    pdfTarget.height,
+  )
+  const pdfMaskedPixel = pixelAt(pdfCanvas, maskCenterX, maskCenterY)
+  const cleanPixel = pixelAt(cleanBitmap, maskCenterX, maskCenterY)
   check(
     'pdf page shows the baked mask',
-    Math.abs(pdfMaskedPixel[0] - originalMaskedPixel[0]) +
-      Math.abs(pdfMaskedPixel[1] - originalMaskedPixel[1]) >
-      6,
-    { pdf: pdfMaskedPixel, original: originalMaskedPixel },
+    Math.abs(pdfMaskedPixel[0] - cleanPixel[0]) + Math.abs(pdfMaskedPixel[1] - cleanPixel[1]) > 6,
+    { pdf: pdfMaskedPixel, clean: cleanPixel },
   )
-  check(
-    'pdf page keeps the rest of the page intact',
-    Math.abs(pdfCleanPixel[0] - originalCleanPixel[0]) +
-      Math.abs(pdfCleanPixel[1] - originalCleanPixel[1]) <
-      6,
-    { pdf: pdfCleanPixel, original: originalCleanPixel },
-  )
+  cleanBitmap.width = 0
 
   await parsedTask.destroy()
   for (const bitmap of pdfSources) {
@@ -416,7 +488,6 @@ export async function runSelfTest(): Promise<void> {
     bitmap.height = 0
   }
   pdfCanvas.width = 0
-  originalCanvas.width = 0
   await wait(60)
 
   // --- layout ---------------------------------------------------------

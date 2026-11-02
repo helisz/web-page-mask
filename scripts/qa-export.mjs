@@ -6,6 +6,7 @@
  */
 import { mkdir, readFile, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
+import { inflateSync } from 'node:zlib'
 import JSZip from 'jszip'
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { sleep, withChrome } from './lib/cdp.mjs'
@@ -190,6 +191,64 @@ await withChrome(url, { downloadPath: downloadDir }, async (api) => {
       Math.abs(pdfViewport.width - 595) < 1.5 && Math.abs(pdfViewport.height - 842) < 1.5,
       { width: Number(pdfViewport.width.toFixed(2)), height: Number(pdfViewport.height.toFixed(2)) },
     )
+
+    const latin = buffer.toString('latin1')
+
+    // The hand-written xref must point at the real object offsets; pdf.js would
+    // silently repair a broken table, so validate it directly.
+    const startxref = Number(latin.match(/startxref\n(\d+)\n%%EOF/)?.at(1))
+    const xrefBody = latin.slice(startxref)
+    const tableHeader = xrefBody.match(/^xref\n0 (\d+)\n/)
+    const entryCount = Number(tableHeader?.at(1))
+    const tableStart = startxref + (tableHeader?.[0].length ?? 0)
+    const entries = Array.from({ length: entryCount }, (_, index) =>
+      latin.slice(tableStart + index * 20, tableStart + index * 20 + 20),
+    )
+    const offsetChecks = entries.slice(1).map((entry, index) => {
+      const offset = Number(entry.slice(0, 10))
+      return {
+        object: index + 1,
+        offset,
+        ok: entry.length === 20 && latin.startsWith(`${index + 1} 0 obj`, offset),
+      }
+    })
+    check(
+      'pdf xref offsets point at their objects',
+      entryCount === 12 &&
+        entries[0].trimEnd() === '0000000000 65535 f' &&
+        offsetChecks.every((item) => item.ok),
+      { entryCount, bad: offsetChecks.filter((item) => !item.ok).slice(0, 3) },
+    )
+
+    // Image streams must inflate to exactly width * 3 * height bytes. A stray
+    // per-row filter byte would make them longer and shear the rendered page.
+    const images = [
+      ...latin.matchAll(
+        /\/Subtype \/Image \/Width (\d+) \/Height (\d+)[\s\S]{0,200}?\/Filter \/FlateDecode [\s\S]{0,10}\/Length (\d+) >>/g,
+      ),
+    ]
+    const streamChecks = images.map((match) => {
+      const width = Number(match[1])
+      const height = Number(match[2])
+      const length = Number(match[3])
+      const start = latin.indexOf('stream\n', match.index) + 'stream\n'.length
+      const inflated = inflateSync(buffer.subarray(start, start + length))
+      return {
+        width,
+        height,
+        compressed: length,
+        inflated: inflated.length,
+        expected: width * height * 3,
+      }
+    })
+    check(
+      'pdf image streams inflate to exact RGB size',
+      images.length === 3 &&
+        streamChecks.every((item) => item.inflated === item.expected) &&
+        !/\/DecodeParms|\/Predictor/.test(latin),
+      { streams: streamChecks, hasPredictor: /\/Predictor/.test(latin) },
+    )
+
     await pdfTask.destroy()
   }
 
