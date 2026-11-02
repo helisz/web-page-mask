@@ -39,5 +39,10 @@
     "vite": "^7.3.7",
     "vue-tsc": "^3.3.14",
     "ws": "^8.22.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/helisz/web-page-mask.git"
+  },
+  "homepage": "https://helisz.github.io/web-page-mask/"
 }

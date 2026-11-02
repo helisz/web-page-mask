@@ -10,14 +10,24 @@ import {
   Sun,
 } from '@lucide/vue'
 import Button from './ui/Button.vue'
+import GithubIcon from './ui/GithubIcon.vue'
 import Select from './ui/Select.vue'
 import Tip from './ui/Tip.vue'
+import { buttonVariants } from './ui/button'
+import { cn } from '@/lib/utils'
 import { t } from '@/i18n'
 import { localeNames } from '@/i18n/messages'
 import type { Locale } from '@/types'
 import { doc, openHelp, setLocale, setTheme, state } from '@/stores/editor'
 import { pickPdfFile } from '@/composables/useFilePicker'
 import { openFiles } from '@/composables/useOpenPdf'
+
+// overridable per deployment: VITE_REPO_URL=https://github.com/you/your-fork
+const repoUrl =
+  (import.meta.env.VITE_REPO_URL as string | undefined)?.trim() ||
+  'https://github.com/helisz/web-page-mask'
+
+const repoLinkClass = cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }), 'hidden sm:inline-flex')
 
 const localeOptions = (Object.keys(localeNames) as Locale[]).map((value) => ({
   value,
@@ -68,6 +78,18 @@ function toggleTheme() {
     </div>
 
     <div class="ml-auto flex items-center gap-1 sm:gap-1.5">
+      <Tip :content="t('header.github')">
+        <a
+          :href="repoUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          :aria-label="t('header.github')"
+          :class="repoLinkClass"
+          data-testid="repo-link"
+        >
+          <GithubIcon class="size-4" />
+        </a>
+      </Tip>
       <Tip :content="t('header.shortcuts')">
         <Button variant="ghost" size="icon-sm" :aria-label="t('header.shortcuts')" @click="openHelp()">
           <Keyboard class="size-4" />

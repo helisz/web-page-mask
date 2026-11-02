@@ -122,6 +122,18 @@ const probe = String.raw`
   const header = $('header')
   check('header fits', header.getBoundingClientRect().width <= vw + 1, rectOf(header))
 
+  const repoLink = $('a[data-testid="repo-link"]')
+  const repoBox = repoLink ? repoLink.getBoundingClientRect() : null
+  if (vw < 640) {
+    check('repo link hidden on phone', !repoLink || repoBox.width === 0, repoBox ? rectOf(repoLink) : null)
+  } else {
+    check(
+      'repo link visible on tablet',
+      !!repoLink && repoBox.width > 0 && repoBox.right <= vw,
+      repoBox ? rectOf(repoLink) : null,
+    )
+  }
+
   return { ok: results.every((x) => x.pass), failures: results.filter((x) => !x.pass).map((x) => x.name), results, vw }
 })()
 `

@@ -61,6 +61,36 @@ const script = String.raw`
   check('no missing i18n keys', missing.length === 0, missing.slice(0, 5))
   check('no unresolved placeholders', placeholders.length === 0, placeholders.slice(0, 5))
 
+  // ---- repo link sits left of the shortcuts button -----------------
+  const shortcutsButton = $$('header button').find(
+    (b) => (b.getAttribute('aria-label') || '') === 'Shortcuts' || (b.getAttribute('aria-label') || '') === '快捷键',
+  )
+  const repoLink = $('header a[data-testid="repo-link"]')
+  const repoHref = repoLink ? repoLink.getAttribute('href') : null
+  const repoRect = repoLink ? repoLink.getBoundingClientRect() : null
+  const shortcutsRect = shortcutsButton ? shortcutsButton.getBoundingClientRect() : null
+  check(
+    'repo link points at GitHub',
+    !!repoLink &&
+      repoHref === 'https://github.com/helisz/web-page-mask' &&
+      repoLink.getAttribute('target') === '_blank' &&
+      (repoLink.getAttribute('rel') || '').includes('noopener') &&
+      !!repoLink.querySelector('svg'),
+    { href: repoHref, rel: repoLink ? repoLink.getAttribute('rel') : null },
+  )
+  check(
+    'repo link sits left of the shortcuts icon',
+    !!repoRect &&
+      !!shortcutsRect &&
+      repoRect.width > 0 &&
+      Math.abs(repoRect.top + repoRect.height / 2 - (shortcutsRect.top + shortcutsRect.height / 2)) < 2 &&
+      repoRect.right <= shortcutsRect.left + 1,
+    {
+      repo: repoRect ? { left: Math.round(repoRect.left), right: Math.round(repoRect.right) } : null,
+      shortcuts: shortcutsRect ? { left: Math.round(shortcutsRect.left), right: Math.round(shortcutsRect.right) } : null,
+    },
+  )
+
   // ---- keyboard page navigation -----------------------------------
   const pageInput = $('header') && $('input[inputmode="numeric"]')
   const beforePage = pageInput ? pageInput.value : null

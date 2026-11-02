@@ -10,6 +10,7 @@ const zhCN = {
   'header.language': '语言',
   'header.theme': '切换主题',
   'header.shortcuts': '快捷键',
+  'header.github': '在 GitHub 上查看源码',
   'header.sample': '打开示例',
 
   'drop.title': '拖入 PDF，开始打码',
@@ -152,6 +153,7 @@ const zhTW: Record<MessageKey, string> = {
   'header.language': '語言',
   'header.theme': '切換主題',
   'header.shortcuts': '快速鍵',
+  'header.github': '在 GitHub 上檢視原始碼',
   'header.sample': '開啟範例',
 
   'drop.title': '拖入 PDF，開始打碼',
@@ -292,6 +294,7 @@ const en: Record<MessageKey, string> = {
   'header.language': 'Language',
   'header.theme': 'Toggle theme',
   'header.shortcuts': 'Shortcuts',
+  'header.github': 'View source on GitHub',
   'header.sample': 'Open sample',
 
   'drop.title': 'Drop a PDF to start masking',
