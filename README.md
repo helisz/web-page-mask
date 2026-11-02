@@ -188,5 +188,33 @@ npm run make-pdf-sample   # 用示例文档真实导出一份 shots/masked-sampl
 
 ## 部署
 
-`npm run build` 产物在 `dist/`，可直接放到任意静态托管（Nginx、S3、GitHub Pages 等）。
-部署到子路径时在 `vite.config.ts` 里设置 `base: '/your-path/'`，pdf.js 资源路径会自动跟随 `BASE_URL`。
+### GitHub Pages（已内置 workflow）
+
+仓库自带 `.github/workflows/deploy-pages.yml`，push 到 `main` 自动构建并发布：
+
+1. 仓库 **Settings → Pages → Build and deployment → Source** 选 **GitHub Actions**（只需一次）
+2. push 到 `main`，或在 Actions 页面手动 **Run workflow**
+3. 构建完成后访问 `https://<user>.github.io/<repo>/`
+
+几个细节：
+
+- `vite.config.ts` 会读 `GITHUB_ACTIONS` / `GITHUB_REPOSITORY`，自动把 `base` 设成 `/<repo>/`，所以 fork、改仓库名都不用改配置；`<user>.github.io` 这种用户站点仓库自动使用根路径 `/`
+- pdf.js 的 cmaps / 标准字体 / wasm 在构建时复制进 `dist/pdfjs`，worker、`sample.pdf` 和图标都走 `BASE_URL`，部署到子路径不会 404
+- `public/.nojekyll` 会进产物，避免 Jekyll 处理下划线开头的文件
+- 第一次部署前若没开 Pages（Source = GitHub Actions），workflow 会在 `configure-pages` 一步报 `Get Pages site failed`
+
+本地复现 Pages 的子路径构建：
+
+```bash
+# Windows PowerShell
+$env:GITHUB_ACTIONS='true'; $env:GITHUB_REPOSITORY='you/web-page-mask'
+npm run build
+npm run preview   # http://localhost:4173/web-page-mask/
+```
+
+### 其他静态托管
+
+`npm run build` 产物在 `dist/`，可直接放到任意静态托管（Nginx、S3、Vercel、Netlify 等）。
+
+- 部署在根路径：不用任何配置
+- 部署在子路径：用 `BASE_PATH=/your-path/ npm run build`（或直接改 `vite.config.ts` 里的 `base`），pdf.js 资源、worker 与示例文档路径都会自动跟随 `BASE_URL`
