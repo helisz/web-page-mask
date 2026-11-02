@@ -26,7 +26,9 @@ export interface PageSize {
   height: number
 }
 
-export type ExportFormat = 'png' | 'jpeg'
+export type ExportFormat = 'png' | 'jpeg' | 'pdf'
+
+export type ExportScope = 'current' | 'masked' | 'all' | 'range'
 
 export type SizeMode = 'px' | 'dpi'
 

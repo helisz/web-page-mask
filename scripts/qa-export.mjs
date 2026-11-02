@@ -7,6 +7,7 @@
 import { mkdir, readFile, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import JSZip from 'jszip'
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { sleep, withChrome } from './lib/cdp.mjs'
 
 const url = process.argv[2] ?? 'http://localhost:5179/?demo=1'
@@ -140,6 +141,56 @@ await withChrome(url, { downloadPath: downloadDir }, async (api) => {
     const buffer = await readFile(join(downloadDir, jpgName))
     check('jpg signature', buffer[0] === 0xff && buffer[1] === 0xd8, { first: [buffer[0], buffer[1]] })
     check('jpg size reasonable', buffer.length > 8000, { bytes: buffer.length })
+  }
+
+
+  // ---------------- multi page PDF ----------------
+  await api.waitFor(`!document.querySelector('[role="dialog"]')`, 5000)
+  check('dialog reopens for pdf', await openDialog(), {})
+  await sleep(300)
+
+  const pdfSelected = await api.evaluate(
+    `(() => { const d=document.querySelector('[role="dialog"]'); const b=[...d.querySelectorAll('button')].find(x=>/^pdf/i.test(x.textContent.trim())); if(!b) return null; b.click(); return b.textContent.trim() })()`,
+  )
+  check('pdf format selected', /pdf/i.test(String(pdfSelected)), { pdfSelected })
+
+  await api.evaluate(
+    `(() => { const d=document.querySelector('[role="dialog"]'); const b=[...d.querySelectorAll('button')].find(x=>/^all/i.test(x.textContent.trim())); if (b) b.click(); const p=[...d.querySelectorAll('button')].find(x=>/^native 72/i.test(x.textContent.trim())); if (p) p.click(); return true })()`,
+  )
+  await sleep(300)
+
+  const pdfDialogText = await api.evaluate(
+    `(() => { const d=document.querySelector('[role="dialog"]'); return d ? d.innerText : '' })()`,
+  )
+  check('pdf shows a merge hint', /one PDF/i.test(pdfDialogText), {
+    lines: String(pdfDialogText).split('\n').filter((line) => /pdf/i.test(line)).slice(0, 3),
+  })
+
+  await api.evaluate(
+    `(() => { const d=document.querySelector('[role="dialog"]'); const list=[...d.querySelectorAll('button')].filter(x=>x.textContent.trim().toLowerCase()==='export'); const b=list[list.length-1]; b.click(); return true })()`,
+  )
+
+  const pdfName = await waitForFile(downloadDir, (name) => name.endsWith('.pdf'))
+  check('pdf downloaded', !!pdfName, { pdfName })
+  if (pdfName) {
+    const buffer = await readFile(join(downloadDir, pdfName))
+    check('pdf signature', buffer.subarray(0, 5).toString('latin1') === '%PDF-', {
+      head: buffer.subarray(0, 8).toString('latin1'),
+    })
+    check('pdf embeds image objects', buffer.includes('/Subtype /Image'), {
+      images: buffer.toString('latin1').match(/\/Subtype \/Image/g)?.length ?? 0,
+    })
+    const pdfTask = pdfjs.getDocument({ data: new Uint8Array(buffer) })
+    const parsed = await pdfTask.promise
+    check('pdf has 3 pages', parsed.numPages === 3, { numPages: parsed.numPages })
+    const pdfPage = await parsed.getPage(1)
+    const pdfViewport = pdfPage.getViewport({ scale: 1 })
+    check(
+      'pdf keeps A4 page size',
+      Math.abs(pdfViewport.width - 595) < 1.5 && Math.abs(pdfViewport.height - 842) < 1.5,
+      { width: Number(pdfViewport.width.toFixed(2)), height: Number(pdfViewport.height.toFixed(2)) },
+    )
+    await pdfTask.destroy()
   }
 
   const files = await readdir(downloadDir)

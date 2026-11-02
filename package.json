@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "make-sample": "node scripts/make-sample.mjs",
+    "make-pdf-sample": "node scripts/make-pdf-sample.mjs",
     "selftest": "node scripts/qa.mjs",
     "qa:ui": "node scripts/qa-ui.mjs",
     "qa:export": "node scripts/qa-export.mjs",

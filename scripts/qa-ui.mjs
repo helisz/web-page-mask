@@ -200,6 +200,48 @@ const script = String.raw`
     const dr = dialog.getBoundingClientRect()
     check('dialog fits viewport', dr.top >= 0 && dr.bottom <= window.innerHeight + 1 && dr.left >= 0 && dr.right <= window.innerWidth + 1, { top: Math.round(dr.top), bottom: Math.round(dr.bottom), height: Math.round(dr.height) })
     check('dialog shows output size', /[\d,]+\s*×\s*[\d,]+\s*px/.test(text(dialog)), text(dialog).match(/[\d,]+\s*×\s*[\d,]+\s*px/g))
+
+    const scopeButtons = Array.from(dialog.querySelectorAll('button')).filter((b) =>
+      /^(current|masked|all\b|range)/i.test(text(b)),
+    )
+    const maskedButton = scopeButtons.find((b) => /masked/i.test(text(b)))
+    check('export scope has 4 options', scopeButtons.length === 4, {
+      labels: scopeButtons.map((b) => text(b)),
+    })
+    check('masked scope counts masked pages', !!maskedButton && /2/.test(text(maskedButton)), {
+      label: maskedButton ? text(maskedButton) : null,
+    })
+
+    if (maskedButton) {
+      maskedButton.click()
+      await wait(300)
+      const maskedHint = text(dialog)
+      check('masked scope explains itself', /only pages that have masks/i.test(maskedHint), {
+        lines: maskedHint.split('\n').filter((line) => /mask/i.test(line)).slice(0, 3),
+      })
+      const startButton = Array.from(dialog.querySelectorAll('button')).find(
+        (b) => text(b).trim().toLowerCase() === 'export',
+      )
+      check('masked scope is exportable', !!startButton && !startButton.disabled, {
+        disabled: startButton ? startButton.disabled : null,
+      })
+      const currentButton = scopeButtons.find((b) => /current/i.test(text(b)))
+      if (currentButton) currentButton.click()
+      await wait(200)
+    }
+
+    const pdfButton = Array.from(dialog.querySelectorAll('button')).find((b) => /pdf/i.test(text(b)))
+    check('pdf format offered', !!pdfButton, { label: pdfButton ? text(pdfButton) : null })
+    if (pdfButton) {
+      pdfButton.click()
+      await wait(300)
+      check('pdf hint shown', /not selectable|lossless/i.test(text(dialog)), {
+        lines: text(dialog).split('\n').filter((line) => /pdf|lossless|selectable/i.test(line)).slice(0, 3),
+      })
+      const pngButton = Array.from(dialog.querySelectorAll('button')).find((b) => /png/i.test(text(b)))
+      if (pngButton) pngButton.click()
+      await wait(200)
+    }
     const close = dialog.querySelector('button[aria-label="Close"]')
     if (close) close.click()
     await wait(400)

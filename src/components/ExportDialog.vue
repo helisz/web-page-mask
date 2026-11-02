@@ -9,13 +9,13 @@ import Segmented from './ui/Segmented.vue'
 import Slider from './ui/Slider.vue'
 import Switch from './ui/Switch.vue'
 import { t } from '@/i18n'
-import type { ExportFormat, ExportSettings, SizeMode } from '@/types'
+import type { ExportFormat, ExportScope, ExportSettings, SizeMode } from '@/types'
 import { computeExportSize, exportPages } from '@/lib/export'
 import { baseName, formatInt, parsePageRange } from '@/lib/utils'
 import { doc, state } from '@/stores/editor'
 import { toast } from '@/composables/useToast'
 
-type Scope = 'current' | 'all' | 'range'
+type Scope = ExportScope
 
 const open = computed({
   get: () => state.exportOpen,
@@ -42,8 +42,14 @@ const busy = ref(false)
 const error = ref('')
 const progress = reactive({ done: 0, total: 0 })
 
+const maskedPages = computed(() => {
+  const pages = [...new Set(state.masks.map((mask) => mask.page))].sort((a, b) => a - b)
+  return pages.filter((page) => page >= 1 && page <= state.pageCount)
+})
+
 const scopeOptions = computed(() => [
   { value: 'current' as Scope, label: t('export.scopeCurrent', { n: state.page }) },
+  { value: 'masked' as Scope, label: t('export.scopeMasked', { n: maskedPages.value.length }) },
   { value: 'all' as Scope, label: t('export.scopeAll', { n: state.pageCount }) },
   { value: 'range' as Scope, label: t('export.scopeRange') },
 ])
@@ -51,6 +57,7 @@ const scopeOptions = computed(() => [
 const formatOptions = computed(() => [
   { value: 'png' as ExportFormat, label: t('export.formatPng') },
   { value: 'jpeg' as ExportFormat, label: t('export.formatJpeg') },
+  { value: 'pdf' as ExportFormat, label: t('export.formatPdf') },
 ])
 
 const modeOptions = computed(() => [
@@ -59,6 +66,7 @@ const modeOptions = computed(() => [
 ])
 
 const pages = computed<number[]>(() => {
+  if (scope.value === 'masked') return maskedPages.value
   if (scope.value === 'all') {
     return Array.from({ length: state.pageCount }, (_, index) => index + 1)
   }
@@ -212,6 +220,9 @@ const presets = computed(() => [
             {{ t('export.scopeCount', { n: pages.length }) }}
           </p>
         </div>
+        <p v-else-if="scope === 'masked'" class="text-[10px] text-muted-foreground">
+          {{ maskedPages.length ? t('export.scopeMaskedHint') : t('export.scopeMaskedEmpty') }}
+        </p>
       </section>
 
       <section class="space-y-1.5">
@@ -334,7 +345,10 @@ const presets = computed(() => [
         <Input id="export-name" v-model="fileName" class="h-8 text-xs" />
       </section>
 
-      <p v-if="pages.length > 1" class="text-[10px] text-muted-foreground">
+      <p v-if="settings.format === 'pdf'" class="text-[10px] text-muted-foreground">
+        {{ pages.length > 1 ? t('export.pdfMerged') : t('export.pdfHint') }}
+      </p>
+      <p v-else-if="pages.length > 1" class="text-[10px] text-muted-foreground">
         {{ t('export.zipHint') }}
       </p>
 

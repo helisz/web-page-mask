@@ -17,7 +17,10 @@ import {
   state,
   undo,
 } from '@/stores/editor'
+import { getDocument } from 'pdfjs-dist'
 import { canvasToBlob, computeExportSize, renderPageBitmap } from '@/lib/export'
+import { getPageSize } from '@/lib/pdf'
+import { encodePdfImage, PdfBuilder } from '@/lib/pdfExport'
 import type { PageSize } from '@/types'
 
 interface Step {
@@ -320,6 +323,101 @@ export async function runSelfTest(): Promise<void> {
   removeMask(circleMask.id)
   selectMask(target.id)
   await wait(120)
+
+  // --- pdf export -----------------------------------------------------
+  const firstSize = await getPageSize(doc.value!, 1)
+  const pdfTarget = computeExportSize(firstSize, { ...settings, format: 'pdf', dpi: 96 })
+  const builder = new PdfBuilder()
+  const pdfSources: HTMLCanvasElement[] = []
+  for (const pageNumber of [1, 2]) {
+    const pageSize = await getPageSize(doc.value!, pageNumber)
+    const bitmap = await renderPageBitmap(
+      doc.value!,
+      pageNumber,
+      masksOf(pageNumber),
+      pageSize,
+      pdfTarget.width,
+      pdfTarget.height,
+    )
+    builder.add(await encodePdfImage(bitmap), pageSize)
+    pdfSources.push(bitmap)
+  }
+  const pdfBlob = builder.build()
+  const pdfBytes = new Uint8Array(await pdfBlob.arrayBuffer())
+  const pdfText = new TextDecoder('latin1').decode(pdfBytes)
+  check(
+    'pdf blob produced',
+    pdfBytes[0] === 0x25 &&
+      pdfText.startsWith('%PDF-1.7') &&
+      pdfText.trimEnd().endsWith('%%EOF') &&
+      pdfBlob.type === 'application/pdf',
+    { bytes: pdfBlob.size, type: pdfBlob.type },
+  )
+  check(
+    'pdf holds one page and one image per page',
+    (pdfText.match(/\/Type \/Page\b/g) ?? []).length === 2 &&
+      (pdfText.match(/\/Subtype \/Image/g) ?? []).length === 2 &&
+      (pdfText.match(/\/Filter \/FlateDecode/g) ?? []).length === 2,
+    {
+      pages: (pdfText.match(/\/Type \/Page\b/g) ?? []).length,
+      images: (pdfText.match(/\/Subtype \/Image/g) ?? []).length,
+    },
+  )
+
+  const parsedTask = getDocument({ data: pdfBytes.slice() })
+  const parsed = await parsedTask.promise
+  check('pdf parses with pdf.js', parsed.numPages === 2, { numPages: parsed.numPages })
+
+  const parsedPage = await parsed.getPage(1)
+  const unitViewport = parsedPage.getViewport({ scale: 1 })
+  check(
+    'pdf keeps the page size in points',
+    Math.abs(unitViewport.width - firstSize.width) < 0.5 &&
+      Math.abs(unitViewport.height - firstSize.height) < 0.5,
+    {
+      pdf: [Number(unitViewport.width.toFixed(2)), Number(unitViewport.height.toFixed(2))],
+      original: [firstSize.width, firstSize.height],
+    },
+  )
+
+  const pdfCanvas = document.createElement('canvas')
+  pdfCanvas.width = Math.round(unitViewport.width)
+  pdfCanvas.height = Math.round(unitViewport.height)
+  await parsedPage.render({ canvas: pdfCanvas, viewport: unitViewport }).promise
+
+  const originalCanvas = document.createElement('canvas')
+  originalCanvas.width = pdfCanvas.width
+  originalCanvas.height = pdfCanvas.height
+  const originalPage = await doc.value!.getPage(1)
+  await originalPage.render({ canvas: originalCanvas, viewport: unitViewport }).promise
+
+  const pdfMaskedPixel = pixelAt(pdfCanvas, 0.4, 0.23)
+  const originalMaskedPixel = pixelAt(originalCanvas, 0.4, 0.23)
+  const pdfCleanPixel = pixelAt(pdfCanvas, 0.93, 0.93)
+  const originalCleanPixel = pixelAt(originalCanvas, 0.93, 0.93)
+  check(
+    'pdf page shows the baked mask',
+    Math.abs(pdfMaskedPixel[0] - originalMaskedPixel[0]) +
+      Math.abs(pdfMaskedPixel[1] - originalMaskedPixel[1]) >
+      6,
+    { pdf: pdfMaskedPixel, original: originalMaskedPixel },
+  )
+  check(
+    'pdf page keeps the rest of the page intact',
+    Math.abs(pdfCleanPixel[0] - originalCleanPixel[0]) +
+      Math.abs(pdfCleanPixel[1] - originalCleanPixel[1]) <
+      6,
+    { pdf: pdfCleanPixel, original: originalCleanPixel },
+  )
+
+  await parsedTask.destroy()
+  for (const bitmap of pdfSources) {
+    bitmap.width = 0
+    bitmap.height = 0
+  }
+  pdfCanvas.width = 0
+  originalCanvas.width = 0
+  await wait(60)
 
   // --- layout ---------------------------------------------------------
   setZoom(state.zoom)

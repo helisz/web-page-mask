@@ -3,6 +3,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist'
 import type { ExportSettings, Mask, PageSize } from '@/types'
 import { paintMasks } from './mosaic'
 import { getPageSize } from './pdf'
+import { encodePdfImage, PdfBuilder } from './pdfExport'
 import { sanitizeFileName, downloadBlob } from './utils'
 
 /** Browsers refuse canvases beyond ~16k on a side and become unstable past a few hundred MPx. */
@@ -124,6 +125,8 @@ export interface ExportResult {
 }
 
 export async function exportPages(request: ExportRequest): Promise<ExportResult> {
+  if (request.settings.format === 'pdf') return exportPdf(request)
+
   const { doc, pages, masks, settings } = request
   const isPng = settings.format === 'png'
   const mime = isPng ? 'image/png' : 'image/jpeg'
@@ -186,4 +189,40 @@ export async function exportPages(request: ExportRequest): Promise<ExportResult>
     fileName: downloaded ? `${base}-p${String(pages[0]).padStart(pad, '0')}.${ext}` : base,
     bytes,
   }
+}
+
+/** Image-only PDF: keeps the original page size in points and embeds the masked bitmaps. */
+async function exportPdf(request: ExportRequest): Promise<ExportResult> {
+  const { doc, pages, masks, settings } = request
+  const base = sanitizeFileName(request.fileName || 'page')
+  const builder = new PdfBuilder()
+  let clamped = false
+
+  for (let index = 0; index < pages.length; index++) {
+    const pageNumber = pages[index]!
+    const size = await getPageSize(doc, pageNumber)
+    const target = computeExportSize(size, settings)
+    if (target.clamped) clamped = true
+
+    const bitmap = await renderPageBitmap(
+      doc,
+      pageNumber,
+      masks.filter((mask) => mask.page === pageNumber),
+      size,
+      target.width,
+      target.height,
+    )
+    builder.add(await encodePdfImage(bitmap, settings.quality), size)
+    bitmap.width = 0
+    bitmap.height = 0
+
+    request.onProgress?.(index + 1, pages.length)
+    // let the UI paint between pages
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  const blob = builder.build()
+  const name = `${base}.pdf`
+  downloadBlob(blob, name)
+  return { count: pages.length, clamped, fileName: name, bytes: blob.size }
 }

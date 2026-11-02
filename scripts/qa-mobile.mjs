@@ -98,6 +98,22 @@ const probe = String.raw`
         vw,
       })
       check('dialog scrollable when tall', dialog.scrollHeight > 0, { scrollHeight: dialog.scrollHeight, clientHeight: dialog.clientHeight })
+      const scopeLabels = Array.from(dialog.querySelectorAll('button'))
+        .map((b) => b.textContent.trim())
+        .filter((label) => /^(current|masked|all\b|range)/i.test(label))
+      check('four export scopes fit', scopeLabels.length === 4, { scopeLabels })
+      const seg = Array.from(dialog.querySelectorAll('button')).find((b) => /masked/i.test(b.textContent))
+      if (seg) {
+        const segRect = seg.getBoundingClientRect()
+        check('scope row does not overflow', segRect.right <= r.right + 1 && segRect.width > 40, {
+          right: Math.round(segRect.right),
+          dialogRight: Math.round(r.right),
+          width: Math.round(segRect.width),
+        })
+        seg.click()
+        await wait(250)
+        check('masked scope works on touch', /mask/i.test(dialog.innerText), {})
+      }
       const close = dialog.querySelector('button[aria-label="Close"]')
       close.click()
     }
